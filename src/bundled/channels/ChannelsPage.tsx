@@ -2360,6 +2360,9 @@ function ChannelWorkspace({
         {current ? (
           <ChannelBody
             onContentReady={setContentReadyChannel}
+            offerMessageLinks={
+              solo || secondary.selectedMain === "conversation"
+            }
             viewer={viewer}
             key={current.id}
             cached={cached}
