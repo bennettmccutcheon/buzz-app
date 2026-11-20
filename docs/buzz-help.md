@@ -160,6 +160,10 @@ if that desktop app is up and running.
   community on this computer deletes its list.
 - **Instructions** change how an agent behaves. They don't give it new tools,
   accounts or permissions.
+- **Settings → Agent setup → Base instructions** shows the instructions Buzz
+  gives agents on this device. Open a section to read it. For editable
+  sections, use **Save** or **Cancel**. **Options** lets you disable or enable
+  a section, or put the default text back in the editor for you to save.
 - **Sessions.** By default an agent starts a fresh conversation for each
   thread. Its settings can make it one per channel or one per community.
 - **While it works**, the agent shows typing dots, and you can stop it. If it
