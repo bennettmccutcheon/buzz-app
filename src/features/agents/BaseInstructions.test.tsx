@@ -289,7 +289,8 @@ it("preserves Markdown when editing formatted text", async () => {
 
 it("preserves noncanonical Markdown when editing source or cancelling a reset", async () => {
   const user = userEvent.setup();
-  const source = "Opening line.\nKeep this line break.\n\n* First\n* Second";
+  const source =
+    "**outer __inner__ text**\nKeep this line break.\n\n* First\n* Second";
   const store = memory({
     etiquette: {
       mode: "custom",
@@ -306,7 +307,7 @@ it("preserves noncanonical Markdown when editing source or cancelling a reset", 
   await openSection(user, "Etiquette");
   expect(editor("Etiquette")).toHaveValue(source);
   expect(store.get(PROMPT_SECTIONS_KEY)).toContain(JSON.stringify(source));
-  const changed = source.replace("Opening", "Edited");
+  const changed = source.replace("Keep", "Preserve");
   fireEvent.change(editor("Etiquette"), { target: { value: changed } });
   await user.click(saveButton());
   expect(ownerChoices(store)).toEqual({
