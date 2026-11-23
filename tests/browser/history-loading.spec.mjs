@@ -28,7 +28,7 @@ const tall = test.extend({ tallMessages: true });
 tall(
   "automatic history starts before the top in a production broker session",
   async ({ page, app }) => {
-    await open(page, app);
+    await open(page, app, { cold: true });
     await expect(
       page.getByRole("dialog", {
         name: "Buzz is having trouble connecting",
@@ -70,7 +70,7 @@ test("landed pages keep reading ahead of a reader who stops at the top", async (
   page,
   app,
 }) => {
-  await open(page, app);
+  await open(page, app, { cold: true });
   await expect(
     page.getByRole("dialog", {
       name: "Buzz is having trouble connecting",
@@ -107,7 +107,7 @@ test("a fast upward scroll reads larger pages than a slow one", async ({
   page,
   app,
 }) => {
-  await open(page, app);
+  await open(page, app, { cold: true });
   await history(page).hover();
   // Scrolls that land close together, which are what the app reads a pace from.
   const close = await history(page).evaluateHandle((element) => {
@@ -150,7 +150,7 @@ test.describe("past the history budget", () => {
     app,
   }) => {
     test.setTimeout(240_000);
-    await open(page, app);
+    await open(page, app, { cold: true });
     const latestId = await history(page)
       .locator("[data-message-id]")
       .last()
@@ -204,7 +204,7 @@ test("returning to the top continues history loading on wheel without a button",
   page,
   app,
 }) => {
-  await open(page, app);
+  await open(page, app, { cold: true });
   await expect(
     page.getByRole("dialog", {
       name: "Buzz is having trouble connecting",
@@ -233,7 +233,7 @@ test("a read-ahead the reader scrolls up to survives leaving the channel", async
   page,
   app,
 }) => {
-  await open(page, app, { hold: true });
+  await open(page, app, { cold: true, hold: true });
   const [ahead] = app.pending;
   await toOlder(page, app);
   await page.getByRole("button", { name: "Beta", exact: true }).click();
@@ -254,7 +254,7 @@ test("saved top resumes automatic history on an upward gesture after remount", a
   app,
 }) => {
   // The saved top stays in the head the reload reads.
-  await open(page, app, { hold: true });
+  await open(page, app, { cold: true, hold: true });
   await expect(
     page.getByRole("dialog", {
       name: "Buzz is having trouble connecting",
@@ -305,7 +305,7 @@ test.describe("quota retry without threshold-driven continuation", () => {
     page,
     app,
   }) => {
-    await open(page, app);
+    await open(page, app, { cold: true });
     await expect(
       page.getByRole("dialog", {
         name: "Buzz is having trouble connecting",
@@ -406,7 +406,7 @@ test.describe("pages inside one second", () => {
   test.use({ historyRowsPerSecond: 30 });
   // Hold the read ahead on open while reading `depth` px above the newest rows.
   async function reading(page, app, depth) {
-    await open(page, app, { hold: true });
+    await open(page, app, { cold: true, hold: true });
     await history(page).hover();
     await wheel(page, -depth);
     expect(app.pending).toHaveLength(1);
@@ -805,7 +805,7 @@ test.describe("pages inside one second", () => {
           }),
         ),
       );
-    await open(page, app, { hold: true });
+    await open(page, app, { cold: true, hold: true });
     await history(page).hover();
     await wheel(page, -100000);
     await wheel(page, 600);
@@ -1044,7 +1044,7 @@ test.describe("pages inside one second", () => {
     // The read ahead on open fails, so the alert does not prove the reader
     // left the bottom. upper() does.
     app.relay.quotaNextOlder("alpha");
-    await open(page, app);
+    await open(page, app, { cold: true });
     await expect(history(page).getByRole("alert")).toContainText(
       "rate-limited",
     );
@@ -1063,7 +1063,7 @@ test("cancelled navigation keeps relay reads usable in the same document", async
   page,
   app,
 }) => {
-  await open(page, app);
+  await open(page, app, { cold: true });
   await page.evaluate(() => {
     window.addEventListener(
       "beforeunload",
