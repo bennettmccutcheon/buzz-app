@@ -76,17 +76,26 @@ it("shows the base instructions, kept in the agents' storage", async () => {
   const types = [
     { key: "buzz.codex/codex", mayRestartForBaseInstructions: () => true },
   ];
+  const listeners = new Set<() => void>();
+  let snapshot: {
+    status: string;
+    running: { key: string; type: string }[];
+  } = {
+    status: "loading",
+    running: [],
+  };
   const storage = localStore();
   render(
     <AgentSettings
       keepAwakeAvailable={false}
       agents={
         {
-          subscribe: () => () => {},
+          subscribe: (listener: () => void) => {
+            listeners.add(listener);
+            return () => listeners.delete(listener);
+          },
           types: () => types,
-          snapshot: () => ({
-            running: [{ key: "agent", type: "buzz.codex/codex" }],
-          }),
+          snapshot: () => snapshot,
           storage,
         } as unknown as Agents
       }
@@ -95,9 +104,16 @@ it("shows the base instructions, kept in the agents' storage", async () => {
   );
   await user.click(screen.getByRole("button", { name: /^Show all \(\d+\)$/ }));
   await user.click(screen.getByRole("button", { name: "Progress" }));
-  expect(
-    screen.getByText(/Older Codex conversations on this device/),
-  ).toBeVisible();
+  const warning = /Older Codex conversations on this device/;
+  expect(screen.queryByText(warning)).not.toBeInTheDocument();
+  act(() => {
+    snapshot = {
+      status: "ready",
+      running: [{ key: "agent", type: "buzz.codex/codex" }],
+    };
+    for (const listener of listeners) listener();
+  });
+  expect(screen.getByText(warning)).toBeVisible();
   await user.click(
     screen.getByRole("button", { name: "Options for Progress" }),
   );
