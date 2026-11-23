@@ -206,7 +206,6 @@ export function BaseInstructions({
   const listId = useId();
   const listRef = useRef<HTMLDivElement>(null);
   const focusRevealedRow = useRef(false);
-  const pendingFocus = useRef<{ id: string; from: HTMLElement }>(undefined);
   const openSectionActions = () =>
     listRef.current?.querySelector<HTMLElement>(
       ".buzz-accordion-item[data-open] [data-instruction-actions]",
@@ -240,15 +239,6 @@ export function BaseInstructions({
       );
       rows?.[PREVIEW_SECTION_COUNT]?.focus();
     }
-    const target = pendingFocus.current;
-    pendingFocus.current = undefined;
-    if (target?.id === openRow) {
-      const control =
-        target.from.isConnected && !target.from.closest("[inert], :disabled")
-          ? target.from
-          : openSectionActions();
-      control?.focus();
-    }
   });
   const resetEditor = (id: string) => {
     setEditorRevisions((current) => ({
@@ -281,20 +271,19 @@ export function BaseInstructions({
     try {
       if (choice || hadChoice) await saveOwnerSections(store, choices);
       setSaved(ownerSections(store));
-      if (
-        from &&
-        (document.activeElement === from ||
-          document.activeElement === document.body ||
-          (enabledChanged && document.activeElement === initialFocus))
-      ) {
-        pendingFocus.current = { id, from };
-      }
       if (successMessage) {
-        const trigger = from
-          ?.closest(".buzz-accordion-item")
-          ?.querySelector<HTMLButtonElement>(".buzz-accordion-trigger");
-        if (pendingFocus.current?.id === id) {
-          savedTrigger.current = trigger ?? null;
+        const item = from?.closest(".buzz-accordion-item");
+        const active = document.activeElement;
+        if (
+          item &&
+          (active === document.body ||
+            item.querySelector(".buzz-accordion-panel")?.contains(active) ||
+            (enabledChanged && active === initialFocus))
+        ) {
+          const trigger = item.querySelector<HTMLButtonElement>(
+            ".buzz-accordion-trigger",
+          );
+          savedTrigger.current = trigger;
           trigger?.focus();
         }
         setOpenRow((current) => (current === id ? null : current));
@@ -388,19 +377,25 @@ export function BaseInstructions({
           <InstructionTitle title={title} mode={mode} changed={changed} />
         </h4>
         <div className={`grid gap-3 ${styles.editor}`}>
-          <DocumentEditor
-            key={editorRevisions[id]}
-            variant="field"
-            editing
-            label={`Your text for ${title}`}
-            aria-describedby={mode === "off" ? undefined : details}
-            aria-invalid={!!problem}
-            value={enabled ? source : defaultSource}
-            placeholder=""
-            maxLength={MAX_MARKDOWN_LENGTH}
-            disabled={mode === "off" || saving === id || resumingSave}
-            onChange={(text) => updateEdit({ text })}
-          />
+          {enabled ? (
+            <DocumentEditor
+              key={editorRevisions[id]}
+              variant="field"
+              editing
+              label={`Your text for ${title}`}
+              aria-describedby={details}
+              aria-invalid={!!problem}
+              value={source}
+              placeholder=""
+              maxLength={MAX_MARKDOWN_LENGTH}
+              disabled={saving === id || resumingSave}
+              onChange={(text) => updateEdit({ text })}
+            />
+          ) : (
+            <InstructionReadingArea>
+              <InstructionText text={defaultSource} />
+            </InstructionReadingArea>
+          )}
           {changed && choice && (
             <div className="grid gap-2">
               <p id={notice} className="m-0 text-body-sm text-secondary">
@@ -475,7 +470,15 @@ export function BaseInstructions({
                   onClick={() =>
                     void saveSection(
                       id,
-                      enabled ? { mode: "off", basedOn } : undefined,
+                      enabled
+                        ? { ...choice, mode: "off", basedOn }
+                        : choice?.mode === "off" && choice.text
+                          ? {
+                              mode: "custom",
+                              text: choice.text,
+                              basedOn: choice.basedOn,
+                            }
+                          : undefined,
                       openSectionActions() ?? undefined,
                       enabled
                         ? "Instruction disabled."

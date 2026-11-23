@@ -425,6 +425,7 @@ export function DocumentEditor({
                 aria-invalid={invalid || undefined}
                 maxLength={Math.min(maxLength, MAX_MARKDOWN_LENGTH)}
                 markdownMode="document"
+                preservePlainTextLineBreaks={field}
                 decorationsFor={noDecorations}
                 onDraftChange={(next) => {
                   if (syncing.current) return;

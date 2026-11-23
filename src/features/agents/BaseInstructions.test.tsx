@@ -149,11 +149,17 @@ it("discloses the sections in prompt order and preserves an edit across collapse
   expect(within(offRow).getByText("Edit")).toBeVisible();
   expect(offRow).toHaveAttribute("aria-expanded", "false");
   await openSection(user, "Progress");
-  expect(within(editor("Progress")).getByRole("list")).toBeVisible();
-  expect(editor("Progress")).toHaveAttribute("contenteditable", "false");
-  expect(editor("Progress")).not.toHaveTextContent("Report milestones.");
+  const disabled = screen.getByRole("region", { name: "Progress" });
+  expect(within(disabled).getByRole("list")).toBeVisible();
+  expect(within(disabled).queryByRole("textbox")).not.toBeInTheDocument();
+  expect(disabled).not.toHaveTextContent("Report milestones.");
   expect(screen.queryByRole("button", { name: "Customize" })).toBeNull();
   expect(ownerChoices(store)).toEqual({ progress: { mode: "off" } });
+  await chooseSectionAction(user, "Progress", "Enable");
+  await openSection(user, "Progress");
+  expect(ownerChoices(store)).toEqual({
+    progress: { mode: "custom", text: "Report milestones." },
+  });
 });
 
 it("reveals the remaining rows with Show all and returns to the preview with Show less", async () => {
@@ -395,9 +401,10 @@ it("applies enable and disable immediately while preserving a text draft", async
   render(<BaseInstructions store={store} />);
   await openSection(user, "Progress");
   expect(sectionRow("Progress")).toHaveAccessibleDescription("Disabled");
-  expect(editor("Progress")).toHaveTextContent("Work in the open.");
-  expect(editor("Progress")).toHaveAttribute("aria-disabled", "true");
-  expect(editor("Progress")).not.toHaveAccessibleDescription();
+  expect(screen.getByRole("region", { name: "Progress" })).toHaveTextContent(
+    "Work in the open.",
+  );
+  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   await user.click(sectionActions("Progress"));
   const enable = await screen.findByRole("menuitem", { name: "Enable" });
   expect(
@@ -413,8 +420,10 @@ it("applies enable and disable immediately while preserving a text draft", async
   editText("Progress", "Report milestones.");
   await chooseSectionAction(user, "Progress", "Disable");
   await openSection(user, "Progress");
-  expect(editor("Progress")).toHaveAttribute("aria-disabled", "true");
-  expect(editor("Progress")).toHaveTextContent("Work in the open.");
+  expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Progress" })).toHaveTextContent(
+    "Work in the open.",
+  );
   expect(ownerChoices(store)).toEqual({
     ...otherChoices,
     progress: { mode: "off" },
@@ -453,8 +462,9 @@ it("says when a default changed after the owner's choice, until they keep theirs
   expect(sectionActions("Progress")).toHaveAccessibleDescription(
     "The default text changed after you made this choice.",
   );
-  expect(editor("Progress")).toHaveTextContent("Work in the open.");
-  expect(editor("Progress")).toHaveAttribute("aria-disabled", "true");
+  const disabled = screen.getByRole("region", { name: "Progress" });
+  expect(disabled).toHaveTextContent("Work in the open.");
+  expect(within(disabled).queryByRole("textbox")).not.toBeInTheDocument();
   await chooseSectionAction(user, "Progress", "Keep mine");
   expect(sectionRow("Progress")).toHaveAccessibleDescription("Disabled");
   expect(sectionRow("Progress")).not.toHaveTextContent("Default changed");
@@ -677,62 +687,69 @@ it("makes a new choice on the default as it is now", async () => {
   });
 });
 
-it("holds writes while a section save is in flight without moving focus when it finishes", async () => {
-  const user = userEvent.setup();
-  const original = { publishing: { mode: "off" } };
-  const store = memory({
-    publishing: {
-      ...original.publishing,
-      basedOn: ownerSectionsHash("publishing"),
-    },
-  });
-  let finish = () => {};
-  const held: AgentStore = {
-    ...store,
-    set: vi.fn(async (key, value) => {
-      await new Promise<void>((resolve) => {
-        finish = resolve;
+it.each([false, true])(
+  "restores focus on save unless the user has moved to another row (%s)",
+  async (moved) => {
+    const user = userEvent.setup();
+    const original = { publishing: { mode: "off" } };
+    const store = memory({
+      publishing: {
+        ...original.publishing,
+        basedOn: ownerSectionsHash("publishing"),
+      },
+    });
+    let finish = () => {};
+    const held: AgentStore = {
+      ...store,
+      set: vi.fn(async (key, value) => {
+        await new Promise<void>((resolve) => {
+          finish = resolve;
+        });
+        await store.set(key, value);
+      }),
+    };
+    render(<BaseInstructions store={held} />);
+    await openSection(user, "Progress");
+    editText("Progress", "Report milestones.");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    try {
+      await waitFor(() => expect(held.set).toHaveBeenCalledOnce());
+      expect(editor("Progress")).toHaveAttribute("aria-disabled", "true");
+      const cancel = screen.getByRole("button", { name: "Cancel" });
+      expect(cancel).toBeEnabled();
+      if (moved) {
+        await user.click(cancel);
+        expect(sectionRow("Progress")).toHaveAttribute(
+          "aria-expanded",
+          "false",
+        );
+        expect(sectionRow("Progress")).toHaveFocus();
+        expect(ownerChoices(store)).toEqual(original);
+        await openSection(user, "Etiquette");
+        expect(sectionActions("Etiquette")).toHaveAttribute(
+          "aria-disabled",
+          "true",
+        );
+        await user.click(sectionActions("Etiquette"));
+        expect(held.set).toHaveBeenCalledOnce();
+        sectionRow("Etiquette").focus();
+      } else {
+        await user.tab({ shift: true });
+        expect(cancel).toHaveFocus();
+      }
+    } finally {
+      finish();
+    }
+    await waitFor(() => {
+      expect(sectionRow("Progress")).toHaveAttribute("aria-expanded", "false");
+      expect(sectionRow(moved ? "Etiquette" : "Progress")).toHaveFocus();
+      expect(ownerChoices(store)).toEqual({
+        ...original,
+        progress: { mode: "custom", text: "Report milestones." },
       });
-      await store.set(key, value);
-    }),
-  };
-  render(<BaseInstructions store={held} />);
-  await openSection(user, "Progress");
-  editText("Progress", "Report milestones.");
-  await user.click(screen.getByRole("button", { name: "Save" }));
-  try {
-    await waitFor(() => expect(held.set).toHaveBeenCalledOnce());
-    expect(editor("Progress")).toHaveAttribute("aria-disabled", "true");
-    const cancel = screen.getByRole("button", { name: "Cancel" });
-    expect(cancel).toBeEnabled();
-    await user.click(cancel);
-    expect(sectionRow("Progress")).toHaveAttribute("aria-expanded", "false");
-    expect(sectionRow("Progress")).toHaveFocus();
-    expect(ownerChoices(store)).toEqual(original);
-    await openSection(user, "Etiquette");
-    expect(sectionActions("Etiquette")).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
-    await user.click(sectionActions("Etiquette"));
-    expect(held.set).toHaveBeenCalledOnce();
-    expect(sectionRow("Etiquette")).not.toHaveAccessibleDescription();
-    sectionRow("Etiquette").focus();
-  } finally {
-    finish();
-  }
-  await waitFor(() =>
-    expect(sectionActions("Etiquette")).not.toHaveAttribute(
-      "aria-disabled",
-      "true",
-    ),
-  );
-  expect(sectionRow("Etiquette")).toHaveFocus();
-  expect(ownerChoices(store)).toEqual({
-    ...original,
-    progress: { mode: "custom", text: "Report milestones." },
-  });
-});
+    });
+  },
+);
 
 it.each(["succeeds", "fails"])(
   "reopens with the saved instructions until a pending write %s",

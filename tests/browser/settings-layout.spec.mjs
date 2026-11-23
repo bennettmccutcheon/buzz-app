@@ -109,9 +109,6 @@ test("editable instructions open formatted and scroll independently of the save 
       })
       .toBeGreaterThan(outer.top);
   };
-  const enabledColor = await editor.evaluate(
-    (node) => getComputedStyle(node).color,
-  );
   await expect(save).toHaveAttribute("data-variant", "prominent");
   await expect(cancel).toHaveAttribute("data-variant", "subtle");
   await expect(actions).toHaveText("Options");
@@ -168,8 +165,13 @@ test("editable instructions open formatted and scroll independently of the save 
   await expect(
     panel.getByRole("heading", { name: `${title} (Disabled)` }),
   ).toBeVisible();
-  await expect(editor).toHaveAttribute("contenteditable", "false");
-  await expect(editor).not.toHaveCSS("color", enabledColor);
+  const disabledText = panel.locator("[data-instruction-reading-area]");
+  await row.press("Tab");
+  await expect(disabledText).toBeFocused();
+  await disabledText.press("End");
+  await expect
+    .poll(() => disabledText.evaluate((node) => node.scrollTop))
+    .toBeGreaterThan(0);
   await expect(save).toBeDisabled();
   await expect(cancel).toBeVisible();
   await actions.press("Space");
@@ -181,8 +183,25 @@ test("editable instructions open formatted and scroll independently of the save 
   await expect(row).toBeFocused();
   await row.press("Enter");
   await expect(editor).toBeEditable();
-  await expect(editor).toHaveCSS("color", enabledColor);
   await expect(save).toBeDisabled();
+
+  const pasted = "Report milestones.\nMention blockers.";
+  await editor.press("ControlOrMeta+a");
+  await editor.evaluate((node, text) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData("text/plain", text);
+    node.dispatchEvent(
+      new ClipboardEvent("paste", {
+        bubbles: true,
+        cancelable: true,
+        clipboardData,
+      }),
+    );
+  }, pasted);
+  await save.click();
+  await expect(row).toHaveAttribute("aria-expanded", "false");
+  await row.press("Enter");
+  await expect(editor).toHaveValue(pasted);
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.emulateMedia({ reducedMotion: "reduce" });

@@ -59,7 +59,7 @@ export function AgentSettings({
       agents
         .types()
         .find((type) => type.key === agent.type)
-        ?.mayRestartForBaseInstructions?.(agent.key),
+        ?.mayRestartForBaseInstructions?.(agent),
     );
   const rememberAgents = useRememberAgentsPreference();
   const keepAwake = useKeepAwakePreference();
