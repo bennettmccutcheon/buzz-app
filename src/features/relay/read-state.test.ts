@@ -2,7 +2,7 @@ import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import { finalizeEvent } from "nostr-tools";
 import {
   browserReadPublisherLock,
-  CapturedReadNotRetainedError,
+  CapturedReadWouldWidenError,
   createReadState,
 } from "./read-state";
 import { effectiveFrontier, READ_RETENTION_SECONDS } from "./read-state-model";
@@ -1118,7 +1118,7 @@ describe("durable read-state owner", () => {
     await restarted.ready;
     expect(restarted.floor()).toBe(floor);
   });
-  it("rejects a captured reply when retention drops its mark despite a retained thread frontier", async () => {
+  it("rejects a captured reply when retention would raise the floor past it under a channel override", async () => {
     const f = fixture();
     const rootId = (READ_RESERVE_KEYS - 1).toString(16).padStart(64, "0");
     const selectedKey = `msg:${"e".repeat(64)}`;
@@ -1176,7 +1176,7 @@ describe("durable read-state owner", () => {
         [selectedKey],
         { preserveCapturedSet: true },
       ),
-    ).rejects.toBeInstanceOf(CapturedReadNotRetainedError);
+    ).rejects.toBeInstanceOf(CapturedReadWouldWidenError);
 
     expect(f.journal()).toEqual(before);
     expect(owner.floor()).toBe(0);
