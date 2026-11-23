@@ -12,6 +12,9 @@ import {
   wheel,
 } from "./timeline.mjs";
 
+// Each journey owns its app and relay state; let workers share this long suite.
+test.describe.configure({ mode: "parallel" });
+
 test.use({
   enabledPlugins: ["buzz.workflows"],
   productionBroker: true,
