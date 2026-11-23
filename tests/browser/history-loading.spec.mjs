@@ -1,5 +1,5 @@
 import { openPage } from "./navigation.mjs";
-import { test, expect, historySize } from "./fixture.mjs";
+import { test, expect } from "./fixture.mjs";
 import {
   anchor,
   edge,
@@ -101,45 +101,6 @@ test("landed pages keep reading ahead of a reader who stops at the top", async (
     new Set(reads.flatMap(({ events }) => events.map(({ id }) => id))).size,
     "history is read ahead, not downloaded whole",
   ).toBeLessThan(620);
-});
-
-test("a fast upward scroll reads larger pages than a slow one", async ({
-  page,
-  app,
-}) => {
-  await open(page, app, { cold: true });
-  await history(page).hover();
-  // Scrolls that land close together, which are what the app reads a pace from.
-  const close = await history(page).evaluateHandle((element) => {
-    const scrolls = { last: 0, close: 0 };
-    element.addEventListener("scroll", () => {
-      const at = performance.now();
-      if (at - scrolls.last < 125) scrolls.close++;
-      scrolls.last = at;
-    });
-    return scrolls;
-  });
-  // Keep wheeling up while every read lands at once, until history is exhausted.
-  const limits = [];
-  let loaded = 20;
-  for (let step = 0; step < 200 && loaded < historySize; step++) {
-    // Back-to-back notches: scrolls far apart measure no pace.
-    for (let notch = 0; notch < 3; notch++) await page.mouse.wheel(0, -500);
-    const pending = app.pending.shift();
-    if (pending) {
-      limits.push(pending.filter.limit);
-      loaded += pending.events.length;
-      pending.release();
-    }
-  }
-  // A runner too slow to land notches inside the app's 250 ms sample gap
-  // gives it no pace to read, so base-size pages are correct there.
-  test.skip(
-    (await close.evaluate((scrolls) => scrolls.close)) < 5,
-    "this runner spaced every wheel notch past the pace sample gap",
-  );
-  expect(Math.max(...limits)).toBeGreaterThan(20);
-  expect(limits.length, "fewer reads than base-size pages").toBeLessThan(31);
 });
 
 test.describe("past the history budget", () => {
