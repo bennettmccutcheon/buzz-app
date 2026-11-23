@@ -78,17 +78,26 @@ describe("an agent's add-policy refusal", () => {
     }
   });
 
-  it("names the agent so the person knows whose owner to ask", () => {
+  it("names the agent, and its owner when known, so the person knows whom to ask", () => {
     const owner = { policy: "owner_only", agent } as const;
     const nobody = { policy: "nobody", agent } as const;
-    expect(agentPolicyMessage(false, owner, "Scout")).toBe(
-      "Only Scout’s owner can add it to a DM.",
+    expect(agentPolicyMessage(false, owner, "Morgan’s Scout", "Morgan")).toBe(
+      "Only Morgan can add Morgan’s Scout to a DM.",
     );
-    expect(agentPolicyMessage(true, nobody, "Scout")).toBe(
+    expect(agentPolicyMessage(true, owner, "Scout", "Morgan")).toBe(
+      "Couldn’t add them. Only Morgan can add Scout to a DM.",
+    );
+    expect(agentPolicyMessage(false, owner, "Scout")).toBe(
+      "Only the owner of Scout can add it to a DM.",
+    );
+    expect(agentPolicyMessage(true, nobody, "Scout", "Morgan")).toBe(
       "Couldn’t add them. Scout can’t be added to a DM.",
     );
+    expect(agentPolicyMessage(false, owner, undefined, "Morgan")).toBe(
+      "Only Morgan can add this agent to a DM.",
+    );
     expect(agentPolicyMessage(false, owner, undefined)).toBe(
-      "Only this agent’s owner can add it to a DM.",
+      "Only the owner of this agent can add it to a DM.",
     );
     expect(agentPolicyMessage(true, nobody, undefined)).toBe(
       "Couldn’t add them. This agent can’t be added to a DM.",

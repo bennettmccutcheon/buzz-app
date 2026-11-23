@@ -11,8 +11,10 @@ import type { RelayReader } from "./reader";
 import type { Outbox } from "./outbox";
 import type { ProfileSearch } from "./profile-search";
 import type { ProfileQueries } from "./profile-directory";
-import { newer, type RelayEvent } from "./events";
+import { hasEventProof, newer, type RelayEvent } from "./events";
 import { typedPublicKey } from "../../shared/identity/public-key";
+import { attestedOwner } from "../agents/owner-attestation";
+import type { IdentityNameView } from "../identity-names/service";
 import {
   verifiedProfile,
   verifiedProfileFilter,
@@ -46,26 +48,41 @@ export function createDirectMessages(
   verifiedAuthority: () => VerifiedProfileAuthority | undefined,
   /** The shared profile cache. A first message reads its 1:1 partner's
    * agent flag from it, and the people directory stays outside it. */
-  profiles?: Pick<ProfileQueries, "ensure" | "snapshot">,
+  profiles?: Pick<ProfileQueries, "ensure" | "snapshot" | "event">,
+  /** Identity labels, which tell namesakes apart, for an agent's refusal. */
+  names?: Pick<IdentityNameView, "resolve">,
 ) {
   const available = !!transport?.openDirectMessage && !!outbox?.supports(9);
   const opened = new Set<(id: string) => void>();
   /** `error`, or, for an agent's add-policy refusal, what to show with the
-   * agent named, so the person knows whose owner to ask. A failed name read
-   * still refuses, without the name. */
+   * agent and its verified owner named, so the person knows whom to ask. A
+   * failed read still refuses, without that name. */
   async function refused(error: unknown, adding: boolean, signal: AbortSignal) {
     const refusal = agentPolicyRefusal(
       error instanceof Error ? error.message : undefined,
     );
     if (!refusal) return error;
+    const label = (key: string) => {
+      const profile = profiles?.snapshot().get(key);
+      const name =
+        profile && !profile.nameIsFallback ? profile.name : undefined;
+      return names ? names.resolve(key, name) : name;
+    };
     await profiles?.ensure([refusal.agent], "foreground").catch(() => {});
     signal.throwIfAborted();
-    const profile = profiles?.snapshot().get(refusal.agent);
+    const head = profiles?.event?.(refusal.agent);
+    const owner =
+      refusal.policy === "owner_only" && head && hasEventProof(head)
+        ? await attestedOwner(head)
+        : undefined;
+    if (owner) await profiles?.ensure([owner], "foreground").catch(() => {});
+    signal.throwIfAborted();
     return new Error(
       agentPolicyMessage(
         adding,
         refusal,
-        profile && !profile.nameIsFallback ? profile.name : undefined,
+        label(refusal.agent),
+        owner && label(owner),
       ),
     );
   }

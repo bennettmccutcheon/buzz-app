@@ -44,17 +44,21 @@ export function agentPolicyRefusal(
     : undefined;
 }
 
-/** What to show for an agent's add-policy refusal, naming the agent so the
- * person knows whose owner to ask. */
+/** What to show for an agent's add-policy refusal, naming the agent, and
+ * its verified owner when known, so the person knows whom to ask. `agent`
+ * and `owner` are identity labels, which tell namesakes apart. */
 export function agentPolicyMessage(
   adding: boolean,
   { policy }: AgentPolicyRefusal,
-  name: string | undefined,
+  agent: string | undefined,
+  owner?: string,
 ): string {
   const refused =
-    policy === "owner_only"
-      ? `Only ${name ? `${name}’s` : "this agent’s"} owner can add it to a DM.`
-      : `${name ?? "This agent"} can’t be added to a DM.`;
+    policy === "nobody"
+      ? `${agent ?? "This agent"} can’t be added to a DM.`
+      : owner
+        ? `Only ${owner} can add ${agent ?? "this agent"} to a DM.`
+        : `Only the owner of ${agent ?? "this agent"} can add it to a DM.`;
   return `${adding ? "Couldn’t add them. " : ""}${refused}`;
 }
 
