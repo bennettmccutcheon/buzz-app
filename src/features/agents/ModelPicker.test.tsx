@@ -1047,6 +1047,9 @@ it.each([false, true])(
       ? screen.getByRole("button", { name: /^Model:/ })
       : control();
     expect(trigger).toHaveTextContent("Auto Balanced");
+    // A split arrow marks a route, in either menu.
+    const split = ".tabler-icon-arrows-split-2";
+    expect(trigger.querySelector(split)).not.toBeNull();
     await user.click(trigger);
     const role = groupByFamily ? "menuitemradio" : "option";
     const rows = await screen.findAllByRole(role);
@@ -1055,6 +1058,9 @@ it.each([false, true])(
       expect.stringContaining("Auto Balanced"),
       expect.stringContaining("Auto Premium"),
     ]);
+    expect(rows.map((row) => Boolean(row.querySelector(split)))).toEqual(
+      rows.map((_, index) => index === 1 || index === 2),
+    );
     await user.click(screen.getByRole(role, { name: /Auto Premium/ }));
     expect(onChange).toHaveBeenCalledExactlyOnceWith("route:auto-premium");
   },

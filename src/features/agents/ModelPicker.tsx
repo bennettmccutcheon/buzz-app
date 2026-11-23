@@ -17,6 +17,7 @@ import {
   ZaiLogoIcon,
   KimiLogoIcon,
   RobotIcon,
+  ArrowsSplitIcon,
 } from "../../shared/design-system/icons";
 import { Button } from "../../shared/design-system/ui/Button";
 import { Dialog } from "../../shared/design-system/ui/Dialog";
@@ -75,6 +76,15 @@ export function modelLogo(model: string, className?: string) {
   return Icon ? (
     <Icon className={className} size={20} aria-hidden="true" />
   ) : null;
+}
+
+/** A route's split arrow, else its vendor's artwork. */
+function choiceLogo(model: ModelChoice) {
+  return model.route || routeOf(model.id) ? (
+    <ArrowsSplitIcon size={20} aria-hidden="true" />
+  ) : (
+    modelLogo(`${model.id} ${model.label}`)
+  );
 }
 
 /** Browse surfaces retain the generic mark when the vendor is unknown. */
@@ -275,9 +285,7 @@ export function ModelPicker({
   const discovering = loading && !pending;
   const choices =
     allowCustomModel && !compact ? [...shown, CUSTOM_MODEL_ACTION] : shown;
-  const optionLogos = choices.map((model) =>
-    modelLogo(`${model.id} ${model.label}`),
-  );
+  const optionLogos = choices.map(choiceLogo);
   const hasOptionLogos = optionLogos.some(Boolean);
   const openCustomDialog = () => {
     const listed = !value || models.some((model) => model.id === value);
@@ -325,7 +333,7 @@ export function ModelPicker({
             valueLabel={discovering ? "Loading models…" : selected.label}
             valueSuffix={discovering ? undefined : valueSuffix}
             valueTitle={discovering ? "Loading models…" : selectedLabel}
-            leading={modelLogo(`${selected.id} ${selected.label}`)}
+            leading={choiceLogo(selected)}
             variant={compact ? "compact" : "preference"}
             appearance={appearance}
             {...(appearance === "glass-ghost" ? { size: "xs" as const } : {})}
