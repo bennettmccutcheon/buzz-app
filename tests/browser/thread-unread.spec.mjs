@@ -10,6 +10,9 @@ import {
 import { openPage } from "./navigation.mjs";
 import { channelUnread } from "./unread-state.mjs";
 
+// Each journey owns its app, relay state and browser context.
+test.describe.configure({ mode: "parallel" });
+
 test.use({
   productionBroker: true,
   readState: true,
