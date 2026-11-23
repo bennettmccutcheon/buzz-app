@@ -518,6 +518,17 @@ function unavailableSavedPick(
   return `${reason} ${fallback}. Your saved choice is retained until you reset it.`;
 }
 
+/** `text` with a line break allowed after each `.`, `_` and `/`, where a
+ * long model id such as `provider.family.model-name` reads best split. */
+function breakable(text: string) {
+  let at = 0;
+  return text.split(/(?<=[._/])/).flatMap((part) => {
+    const start = at;
+    at += part.length;
+    return start ? [<wbr key={start} />, part] : [part];
+  });
+}
+
 function AgentChoice({
   choice,
   availability,
@@ -718,14 +729,14 @@ function AgentChoice({
       )}
       {chose && (
         <span
-          className={`${styles.level} ${styles.controls}`}
+          className={`${styles.latest} ${styles.controls}`}
           title={
             latest?.rationale
               ? `${latest.route}: ${latest.rationale}`
               : latest?.route
           }
         >
-          {chose}
+          {breakable(chose)}
         </span>
       )}
       {feedback && (

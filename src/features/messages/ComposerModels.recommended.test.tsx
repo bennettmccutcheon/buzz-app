@@ -243,4 +243,15 @@ it("shows what an agent's route chose for its latest turn", async () => {
     await screen.findByRole("button", { name: /^Model and effort/ }),
   );
   expect(await screen.findByText("Latest turn: Model B · High")).toBeVisible();
+  // A long model id may wrap after its dots and underscores.
+  act(() =>
+    noteRoutedTurn(pubkey, {
+      route: { id: "auto-balanced", label: "Auto Balanced" },
+      label: "tools_x.goose.model-b · High",
+    }),
+  );
+  const line = await screen.findByText(
+    "Latest turn: tools_x.goose.model-b · High",
+  );
+  expect(line.querySelectorAll("wbr")).toHaveLength(3);
 });
