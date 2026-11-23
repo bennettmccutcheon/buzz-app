@@ -545,6 +545,7 @@ export function PageTabs({
                             key={JSON.stringify(primaryTarget)}
                             tab={primaryTab}
                             intro={workspace.intro}
+                            trailing={workspace.trailing}
                             subthreadId={primaryTarget?.subthreadId}
                             latestRequest={latestRequest}
                             active={
