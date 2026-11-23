@@ -790,15 +790,19 @@ it("a channel override, active or cleared, protects only its own floor", () => {
   const frontiers = Object.fromEntries(
     Array.from({ length: 2000 }, (_, n) => [thread(n), 100 + n]),
   );
-  for (const room of [
-    { set: 1, clear: 0, baseline: 0 },
-    { set: 1, clear: 2, baseline: 0 },
-  ]) {
+  for (const [room, active] of [
+    [{ set: 1, clear: 0, baseline: 50 }, true],
+    [{ set: 1, clear: 2, baseline: 0 }, false],
+  ] as const) {
     const overrides = { room };
     const state = { frontiers: { ...frontiers, room: 50 }, overrides };
+    expect(overrideActive(room, state.frontiers.room)).toBe(active);
     const journal = retainReadState([state], {}, "fixture");
     expect(journal.overrides).toEqual(overrides);
     expect(journal.frontiers.room).toBe(50);
+    expect(overrideActive(journal.overrides.room, journal.frontiers.room)).toBe(
+      active,
+    );
     expect(Object.keys(journal.frontiers).length).toBeLessThan(2001);
     const local = retainLocalRead(
       [state],
@@ -814,6 +818,9 @@ it("a channel override, active or cleared, protects only its own floor", () => {
       60,
     );
     expect(local.state.frontiers.room).toBe(50);
+    expect(
+      overrideActive(local.state.overrides.room, local.state.frontiers.room),
+    ).toBe(active);
     expect(local.floor).toBeGreaterThan(60);
   }
   expect(() =>
