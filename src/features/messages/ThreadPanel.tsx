@@ -62,6 +62,7 @@ import { ChannelJoinNotice } from "./ChannelJoinNotice";
 import { useListedChannel } from "../relay/listed-channel";
 import type { CSSProperties } from "react";
 import styles from "./Messages.module.css";
+import { ThreadLoading } from "./ThreadLoading";
 import { Reading, readingPositioned } from "./use-reading";
 import { useMessageReveal } from "./use-message-reveal";
 import { usePendingRequest } from "./use-pending-request";
@@ -2635,19 +2636,4 @@ function shownAnchor(anchor: { element: HTMLElement; top: number }) {
   return !height || anchor.top + height > 0
     ? anchor
     : { element: anchor.element, top: 0 };
-}
-
-function ThreadLoading() {
-  return (
-    <div className={styles.threadLoading} role="status">
-      <picture>
-        <source
-          media="(prefers-reduced-motion: reduce)"
-          srcSet="/buzz-mark.svg"
-        />
-        <img src="/buzz-loading-mark.svg" alt="" width="498" height="341" />
-      </picture>
-      <span className="sr-only">Loading thread…</span>
-    </div>
-  );
 }

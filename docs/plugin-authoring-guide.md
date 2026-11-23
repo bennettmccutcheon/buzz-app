@@ -140,6 +140,12 @@ Other grants (`mcp`, `managedFiles`, `publicImages`, `publicPages`, `agentHooks`
 - Use host color tokens (`var(--...)`) so light and dark themes both work. Rely only on the `core` roles in `src/shared/design-system/tokens/registry.ts`; other custom properties, classes and `data-*` attributes are internal.
 - Avoid fixed widths; pages can be narrow.
 - The legacy `buzz.relay-notes/notes` page uses the host's Notes icon even when installed as an external plugin.
+- A canonical plugin page link can open beside a conversation if the named
+  plugin registers a matching panel with `addressable: true`. Links fall back
+  to the plugin page if the panel does not qualify.
+- Call `ctx.panels.useTabTitle(label, icon?, actions?)` inside a panel to set
+  its tab title. Optional `{ label, run }` actions appear in its context menu
+  while the panel is mounted. Keep the actions array stable across renders.
 - For `ctx.agents.ui.Transcript`, set `endedAt` on a finished turn, or supply `outcome` if its end time is unknown. Use `at: 0` for an unknown item timestamp. Omit `completedAt` when a tool's start time is unknown.
 
 ## Common mistakes
