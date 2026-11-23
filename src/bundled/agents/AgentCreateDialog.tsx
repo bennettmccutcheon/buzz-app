@@ -24,6 +24,7 @@ import {
 } from "../../features/agents/AISettings";
 import {
   activeRoute,
+  routeModel,
   useModelRoutes,
 } from "../../features/agents/model-routes";
 import {
@@ -466,15 +467,20 @@ export function AgentCreateDialog({
     // While the pick runs, its effect takes the harness once known.
     if (on && pick && pick.type.key !== type?.key)
       chooseModel(pick.type, carried(pick.type));
-    // Manual starts from what Automatic picked.
-    if (!on && pick && pick.type.key === type?.key)
-      setConfig(
-        followRecommended(
-          withRecommended(config as object),
-          config as { model: string; effort: string },
-          pick.candidate,
-        ),
+    // Manual starts from what Automatic picked: its route, when a plugin
+    // offers one, on the candidate's provider.
+    if (!on && pick && pick.type.key === type?.key) {
+      const picked = followRecommended(
+        withRecommended(config as object),
+        config as { model: string; effort: string },
+        pick.candidate,
       );
+      setConfig(
+        automaticRoute
+          ? { ...picked, model: routeModel(automaticRoute.id), effort: "" }
+          : picked,
+      );
+    }
   };
   // Automatic has nothing to create with until, and unless, a pick is found.
   const waiting = automatic && !type?.remote && !pick;
