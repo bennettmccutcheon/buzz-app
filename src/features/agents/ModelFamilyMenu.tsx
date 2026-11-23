@@ -4,7 +4,7 @@ import {
   CaretDownIcon,
   CheckIcon,
   LightningIcon,
-  SparklesIcon,
+  ArrowsSplitIcon,
 } from "../../shared/design-system/icons";
 import { Button } from "../../shared/design-system/ui/Button";
 import { ChoiceRow } from "../../shared/design-system/ui/ChoiceRow";
@@ -192,7 +192,7 @@ export function ModelFamilyMenu({
               </span>
             )}
             {selected.route ? (
-              <SparklesIcon
+              <ArrowsSplitIcon
                 className="buzz-select-leading"
                 size={20}
                 aria-hidden="true"
@@ -256,9 +256,9 @@ export function ModelFamilyMenu({
                   aria-description={model.description}
                   closeOnClick
                 >
-                  {/* Sparkles mark a route: it picks the model per turn. */}
+                  {/* A split arrow marks a route: it picks the model per turn. */}
                   <span className="buzz-select-leading" aria-hidden="true">
-                    <SparklesIcon size={20} aria-hidden="true" />
+                    <ArrowsSplitIcon size={20} aria-hidden="true" />
                   </span>
                   <ChoiceRow
                     label={model.label}

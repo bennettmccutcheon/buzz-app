@@ -38,7 +38,7 @@ import {
   CircleNotchIcon,
   CircleDottedIcon,
   GaugeIcon,
-  SparklesIcon,
+  ArrowsSplitIcon,
 } from "../../shared/design-system/icons/index";
 import { routeOf, useLatestRoutedTurn } from "../agents/model-routes";
 import { IconButton } from "../../shared/design-system/ui/IconButton";
@@ -633,7 +633,7 @@ function AgentChoice({
               {choice.models.map((item) => (
                 <MenuRadioItem key={item.id} value={item.id} closeOnClick>
                   {routeOf(item.id) && (
-                    <SparklesIcon size={16} aria-hidden="true" />
+                    <ArrowsSplitIcon size={16} aria-hidden="true" />
                   )}
                   {item.label}
                 </MenuRadioItem>
@@ -707,7 +707,7 @@ function AgentChoice({
             <div className={styles.status}>
               <span className={styles.statusIcon}>
                 {onRoute ? (
-                  <SparklesIcon size={20} aria-hidden="true" />
+                  <ArrowsSplitIcon size={20} aria-hidden="true" />
                 ) : (
                   <CircleDottedIcon size={20} aria-hidden="true" />
                 )}
