@@ -48,6 +48,14 @@ button[aria-expanded="true"] .rowTitle {
   --document-field-max-height: var(--instruction-text-max-height);
 }
 
+.editor :is([contenteditable], textarea) {
+  padding-block-end: var(--space-3);
+}
+
+.editor [data-overflow-end] {
+  mask-image: var(--scroll-fade-end);
+}
+
 .readingArea {
   max-block-size: var(--instruction-text-max-height);
   overflow-y: auto;

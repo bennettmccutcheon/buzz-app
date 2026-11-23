@@ -75,10 +75,6 @@ test("editable instructions open formatted and scroll independently of the save 
   const actions = panel.getByRole("button", {
     name: `Options for ${title}`,
   });
-  const confirm = page.getByRole("alertdialog", {
-    name: "Save instruction change?",
-  });
-
   await cancel.click();
   await expect(row).toBeFocused();
   await row.press("Enter");
@@ -118,7 +114,6 @@ test("editable instructions open formatted and scroll independently of the save 
   );
   await expect(save).toHaveAttribute("data-variant", "prominent");
   await expect(cancel).toHaveAttribute("data-variant", "subtle");
-  await expect(actions).toHaveAttribute("data-variant", "subtle");
   await expect(actions).toHaveText("Options");
   const editableHint = panel.getByText("This instruction can be changed.");
   expect((await editableHint.boundingBox()).x).toBeLessThan(
@@ -145,12 +140,7 @@ test("editable instructions open formatted and scroll independently of the save 
   });
   await reset.hover();
   await expect(page.getByRole("tooltip")).toHaveText("Already set");
-  await page
-    .getByRole("menuitem", { name: "Disable", exact: true })
-    .press("Enter");
-  await expect(confirm.getByRole("button", { name: "Cancel" })).toBeFocused();
-  await confirm.getByRole("button", { name: "Cancel" }).press("Enter");
-  await expect(actions).toBeFocused();
+  await page.keyboard.press("Escape");
   await cancel.press("Enter");
   await expect(row).toBeFocused();
   await row.press("Enter");
@@ -160,30 +150,38 @@ test("editable instructions open formatted and scroll independently of the save 
   await editor.press("ControlOrMeta+b");
   await expect(editor.locator("strong")).toHaveText("Report milestones.");
   await save.click();
-  await confirm.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(row).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByText("Instruction saved.")).toBeVisible();
+  await expect(row).toBeFocused();
+  await row.press("Enter");
   await expect(
     panel.getByRole("heading", { name: `${title} (Modified)` }),
   ).toBeVisible();
   await expect(editor.locator("strong")).toHaveText("Report milestones.");
-  await expect(save).toBeFocused();
 
   await actions.click();
   await page.getByRole("menuitem", { name: "Disable", exact: true }).click();
+  await expect(row).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByText("Instruction disabled.")).toBeVisible();
+  await expect(row).toBeFocused();
+  await row.press("Enter");
   await expect(
     panel.getByRole("heading", { name: `${title} (Disabled)` }),
   ).toBeVisible();
   await expect(editor).toHaveAttribute("contenteditable", "false");
   await expect(editor).not.toHaveCSS("color", enabledColor);
-  await expect(actions).toBeFocused();
   await expect(save).toBeDisabled();
   await expect(cancel).toBeVisible();
   await actions.press("Space");
   await page
     .getByRole("menuitem", { name: "Enable", exact: true })
     .press("Enter");
+  await expect(row).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByText("Instruction enabled.")).toBeVisible();
+  await expect(row).toBeFocused();
+  await row.press("Enter");
   await expect(editor).toBeEditable();
   await expect(editor).toHaveCSS("color", enabledColor);
-  await expect(actions).toBeFocused();
   await expect(save).toBeDisabled();
 
   await page.setViewportSize({ width: 1440, height: 900 });

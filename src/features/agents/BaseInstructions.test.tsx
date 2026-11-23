@@ -59,9 +59,7 @@ const chooseSectionAction = async (
   await user.click(await screen.findByRole("menuitem", { name: action }));
 };
 const saveButton = () => screen.getByRole("button", { name: "Save" });
-const dialog = () =>
-  screen.getByRole("alertdialog", { name: "Save instruction change?" });
-const notice = /^Older Codex conversations on this device start over once\./;
+const notice = /^Older Codex conversations on this device may start over once/;
 const sectionRow = (title: string) =>
   screen.getByRole("button", { name: title });
 const showAll = (count = SECTIONS.length) => sectionRow(`Show all (${count})`);
@@ -136,9 +134,10 @@ it("discloses the sections in prompt order and preserves an edit across collapse
   expect(sectionRow("Trust")).toHaveAttribute("aria-expanded", "false");
   expect(editor("Progress")).toHaveTextContent("Report milestones.");
   await user.click(screen.getByRole("button", { name: "Save" }));
-  await user.click(within(dialog()).getByRole("button", { name: "Save" }));
   expect(sectionRow("Progress")).toHaveTextContent("Progress (Modified)");
   expect(sectionRow("Progress")).toHaveAccessibleDescription("Modified");
+  expect(sectionRow("Progress")).toHaveAttribute("aria-expanded", "false");
+  await openSection(user, "Progress");
   expect(saveButton()).toHaveAttribute("aria-disabled", "true");
   await disableSection(user, "Progress");
   const offRow = sectionRow("Progress");
@@ -148,6 +147,8 @@ it("discloses the sections in prompt order and preserves an edit across collapse
   expect(offTitle).toHaveClass("opacity-60");
   expect(offTitle).not.toHaveClass("line-through");
   expect(within(offRow).getByText("Edit")).toBeVisible();
+  expect(offRow).toHaveAttribute("aria-expanded", "false");
+  await openSection(user, "Progress");
   expect(within(editor("Progress")).getByRole("list")).toBeVisible();
   expect(editor("Progress")).toHaveAttribute("contenteditable", "false");
   expect(editor("Progress")).not.toHaveTextContent("Report milestones.");
@@ -225,19 +226,8 @@ it("saves each section independently and keeps other drafts", async () => {
   expect(screen.queryByText(notice)).toBeNull();
   expect(ownerChoices(store)).toEqual({});
   await disableSection(user, "Progress");
-  expect(dialog()).toHaveAccessibleDescription(expect.stringMatching(notice));
-  expect(ownerChoices(store)).toEqual({});
-  await user.click(within(dialog()).getByRole("button", { name: "Cancel" }));
-  expect(ownerChoices(store)).toEqual({});
-  expect(sectionRow("Progress")).not.toHaveAccessibleDescription();
-  expect(sectionActions("Progress")).toHaveFocus();
-  await chooseSectionAction(user, "Progress", "Disable");
-  await user.click(within(dialog()).getByRole("button", { name: "Disable" }));
   expect(ownerChoices(store)).toEqual({ progress: { mode: "off" } });
   expect(sectionRow("Progress")).toHaveAccessibleDescription("Disabled");
-  expect(saveButton()).toHaveAttribute("aria-disabled", "true");
-  expect(sectionActions("Progress")).toHaveFocus();
-  await user.click(screen.getByRole("button", { name: "Cancel" }));
   expect(sectionRow("Progress")).toHaveAttribute("aria-expanded", "false");
   expect(sectionRow("Progress")).toHaveFocus();
   await openSection(user, "Etiquette");
@@ -247,9 +237,10 @@ it("saves each section independently and keeps other drafts", async () => {
     progress: { mode: "off" },
     etiquette: { mode: "custom", text: "Be brief." },
   });
+  expect(sectionRow("Etiquette")).toHaveFocus();
+  await openSection(user, "Etiquette");
   expect(saveButton()).toHaveAttribute("aria-disabled", "true");
   expect(screen.getByText("Be brief.")).toBeVisible();
-  expect(saveButton()).toHaveFocus();
   expect(screen.queryByText(notice)).toBeNull();
 });
 
@@ -378,7 +369,8 @@ it("stages the default text until the user saves or cancels", async () => {
   await user.keyboard("{Escape}");
   await user.click(saveButton());
   expect(ownerChoices(store)).toEqual({});
-  expect(saveButton()).toHaveFocus();
+  expect(sectionRow("Etiquette")).toHaveFocus();
+  await openSection(user, "Etiquette");
   expect(editor("Etiquette")).toHaveTextContent("Address people by the");
   expect(saveButton()).toHaveAttribute("aria-disabled", "true");
   await user.click(sectionActions("Etiquette"));
@@ -414,10 +406,13 @@ it("applies enable and disable immediately while preserving a text draft", async
     }),
   ).toHaveAttribute("aria-disabled", "true");
   await user.click(enable);
+  expect(sectionRow("Progress")).toHaveAttribute("aria-expanded", "false");
+  await openSection(user, "Progress");
   expect(ownerChoices(store)).toEqual(otherChoices);
   expect(saveButton()).toHaveAttribute("aria-disabled", "true");
   editText("Progress", "Report milestones.");
   await chooseSectionAction(user, "Progress", "Disable");
+  await openSection(user, "Progress");
   expect(editor("Progress")).toHaveAttribute("aria-disabled", "true");
   expect(editor("Progress")).toHaveTextContent("Work in the open.");
   expect(ownerChoices(store)).toEqual({
@@ -426,6 +421,7 @@ it("applies enable and disable immediately while preserving a text draft", async
   });
   expect(saveButton()).toHaveAttribute("aria-disabled", "true");
   await chooseSectionAction(user, "Progress", "Enable");
+  await openSection(user, "Progress");
   expect(editor("Progress")).not.toHaveAttribute("aria-disabled");
   expect(editor("Progress")).toHaveTextContent("Report milestones.");
   expect(saveButton()).toBeEnabled();
@@ -583,7 +579,7 @@ it("warns that the owner's choice also applies in the chats a plugin manages", a
     "Example Plugin and Other Plugin can replace this in chats they manage.",
   );
   await disableSection(user, "Progress");
-  await user.click(within(dialog()).getByRole("button", { name: "Disable" }));
+  await openSection(user, "Progress");
   expect(screen.getByText(warning, { exact: false })).toBeInTheDocument();
   expect(screen.queryByText(/can replace this/)).not.toBeInTheDocument();
   expect(sectionActions("Progress")).toHaveAccessibleDescription(
@@ -618,6 +614,20 @@ it("says when the saved choices cannot be read, and shows choices that are no lo
   expect(await screen.findByText("Mine.")).toBeInTheDocument();
 });
 
+it("shows the restart warning inline for affected conversations", async () => {
+  const user = userEvent.setup();
+  const store = memory();
+  render(<BaseInstructions store={store} mayRestart />);
+  await openSection(user, "Progress");
+  expect(sectionActions("Progress")).toHaveAccessibleDescription(notice);
+  editText("Progress", "Report milestones.");
+  expect(saveButton()).toHaveAccessibleDescription(notice);
+  await user.click(saveButton());
+  expect(ownerChoices(store)).toEqual({
+    progress: { mode: "custom", text: "Report milestones." },
+  });
+});
+
 it("keeps a failed edit available for retry", async () => {
   const user = userEvent.setup();
   const store = memory();
@@ -627,22 +637,15 @@ it("keeps a failed edit available for retry", async () => {
   render(<BaseInstructions store={{ ...store, set }} />);
   await openSection(user, "Progress");
   editText("Progress", "Report milestones.");
-  const save = screen.getByRole("button", { name: "Save" });
+  const save = saveButton();
   await user.click(save);
-  expect(dialog()).toHaveAccessibleDescription(expect.stringMatching(notice));
-  expect(set).not.toHaveBeenCalled();
-  await user.click(within(dialog()).getByRole("button", { name: "Cancel" }));
-  expect(editor("Progress")).toHaveTextContent("Report milestones.");
-  expect(save).toHaveFocus();
-  await user.click(save);
-  const confirm = within(dialog()).getByRole("button", { name: "Save" });
-  await user.click(confirm);
-  expect(await within(dialog()).findByRole("alert")).toHaveTextContent(
+  expect(await screen.findByRole("alert")).toHaveTextContent(
     "The disk is full",
   );
+  expect(editor("Progress")).toHaveTextContent("Report milestones.");
   expect(ownerChoices(store)).toEqual({});
-  expect(confirm).toBeEnabled();
-  await user.click(confirm);
+  expect(save).toBeEnabled();
+  await user.click(save);
   expect(ownerChoices(store)).toEqual({
     progress: { mode: "custom", text: "Report milestones." },
   });
@@ -748,7 +751,6 @@ it.each(["succeeds", "fails"])(
     const store = fileStore(new Map(), write);
     const first = render(<BaseInstructions store={store} />);
     await disableSection(user, "Progress");
-    await user.click(within(dialog()).getByRole("button", { name: "Disable" }));
 
     try {
       await waitFor(() => expect(write).toHaveBeenCalledOnce());

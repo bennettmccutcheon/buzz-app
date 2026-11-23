@@ -173,6 +173,9 @@ export const apply: PluginModule["apply"] = (ctx) => {
     ctx.agents.inspectExecution(key),
   );
   ctx.agents.register<Config>({
+    mayRestartForBaseInstructions: (agent) =>
+      !ctx.agents.executionBinding(agent) &&
+      runtime.mayRestartForBaseInstructions(agent),
     id: TYPE_ID,
     conversationFolders: true,
     conversationSections: true,

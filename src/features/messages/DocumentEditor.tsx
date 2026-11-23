@@ -23,6 +23,7 @@ import type {
   ComposerInputElement,
   ComposerLinkEdit,
 } from "./composer-dom";
+import { useScrollEdges } from "../../shared/design-system/ui/useScrollEdges";
 import { Textarea } from "../../shared/design-system/ui/Textarea";
 import {
   documentEditorDraft,
@@ -215,6 +216,12 @@ export function DocumentEditor({
   const toolbarSurface = useRef<HTMLFieldSetElement>(null);
   const input = useRef<ComposerInputElement>(null);
   const sourceInput = useRef<HTMLTextAreaElement>(null);
+  const scrollRef = useScrollEdges("block");
+  useLayoutEffect(() => {
+    scrollRef(
+      field && editing ? (source ? sourceInput.current : input.current) : null,
+    );
+  }, [editing, field, scrollRef, source]);
   useImperativeHandle(
     ref,
     () => ({

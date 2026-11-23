@@ -53,6 +53,14 @@ export function AgentSettings({
   /** Only the macOS app can keep the computer awake. */
   keepAwakeAvailable?: boolean;
 }) {
+  const mayRestart =
+    active &&
+    agents?.snapshot().running.some((agent) =>
+      agents
+        .types()
+        .find((type) => type.key === agent.type)
+        ?.mayRestartForBaseInstructions?.(agent.key),
+    );
   const rememberAgents = useRememberAgentsPreference();
   const keepAwake = useKeepAwakePreference();
   const keepAwakeApplyError = useKeepAwakeApplyError();
@@ -125,7 +133,11 @@ export function AgentSettings({
         </SettingsGroup>
       </div>
       {agents && (
-        <BaseInstructions store={agents.storage} replacedBy={sectionPlugins} />
+        <BaseInstructions
+          store={agents.storage}
+          replacedBy={sectionPlugins}
+          mayRestart={!!mayRestart}
+        />
       )}
       {active && mentionError && (
         <ToastNotice

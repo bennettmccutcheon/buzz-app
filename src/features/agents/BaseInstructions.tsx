@@ -12,7 +12,6 @@ import {
 } from "react";
 import remarkGfm from "remark-gfm";
 import { Accordion } from "../../shared/design-system/ui/Accordion";
-import { AlertDialog } from "../../shared/design-system/ui/AlertDialog";
 import { Button } from "../../shared/design-system/ui/Button";
 import { InlineHeader } from "../../shared/design-system/ui/Header";
 import {
@@ -22,6 +21,7 @@ import {
   MenuTrigger,
 } from "../../shared/design-system/ui/Menu";
 import { SettingsGroup } from "../../shared/design-system/ui/SettingsGroup";
+import { useToastNotification } from "../../shared/design-system/ui/Toast";
 import { Tooltip } from "../../shared/design-system/ui/Tooltip";
 import { useScrollEdges } from "../../shared/design-system/ui/useScrollEdges";
 import { SECTIONS, type Section } from "../agent-harness/sections";
@@ -60,7 +60,7 @@ const defaultText = (section: Section) =>
 const bytes = (text: string) => new TextEncoder().encode(text.trim()).length;
 
 const firstChoiceNotice =
-  "Older Codex conversations on this device start over once. Older ones on another computer keep their instructions until you start a new session.";
+  "Older Codex conversations on this device may start over once on their next turn.";
 
 const PROFILE: MarkdownProfile = {
   syntax: [remarkGfm],
@@ -176,12 +176,16 @@ const defaultChanged = (section: Section, choice: SavedChoice | undefined) =>
 export function BaseInstructions({
   store,
   replacedBy,
+  mayRestart = false,
 }: {
   store: AgentStore;
+  mayRestart?: boolean;
   /** The names of the plugins that can replace a section's text in the
    * chats they manage. */
   replacedBy?: ((section: string) => readonly string[]) | undefined;
 }) {
+  const notify = useToastNotification();
+  const savedTrigger = useRef<HTMLButtonElement | null>(null);
   const [start] = useState(() => committedOwnerSections(store));
   const [saved, setSaved] = useState(start.sections);
   const [resumingSave, setResumingSave] = useState(!!start.writing);
@@ -195,11 +199,6 @@ export function BaseInstructions({
   } | null>(null);
   const saving = write?.id ?? null;
   const [error, setError] = useState<{ id?: string; message: string }>();
-  const [confirmation, setConfirmation] = useState<{
-    id: string;
-    choice: SavedChoice;
-    from?: HTMLElement | undefined;
-  }>();
   const [openRow, setOpenRow] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const busy = saving !== null || resumingSave;
@@ -266,6 +265,7 @@ export function BaseInstructions({
     id: string,
     choice: SavedChoice | undefined,
     from?: HTMLElement,
+    successMessage?: string,
   ) => {
     if (busy) return false;
     const choices = { ...ownerSections(store).choices };
@@ -274,6 +274,8 @@ export function BaseInstructions({
       (choices[id]?.mode === "off") !== (choice?.mode === "off");
     if (choice) choices[id] = choice;
     else delete choices[id];
+    savedTrigger.current = null;
+    const initialFocus = document.activeElement;
     setWrite({ id, enabledChanged });
     setError(undefined);
     try {
@@ -282,9 +284,21 @@ export function BaseInstructions({
       if (
         from &&
         (document.activeElement === from ||
-          document.activeElement === document.body)
+          document.activeElement === document.body ||
+          (enabledChanged && document.activeElement === initialFocus))
       ) {
         pendingFocus.current = { id, from };
+      }
+      if (successMessage) {
+        const trigger = from
+          ?.closest(".buzz-accordion-item")
+          ?.querySelector<HTMLButtonElement>(".buzz-accordion-trigger");
+        if (pendingFocus.current?.id === id) {
+          savedTrigger.current = trigger ?? null;
+          trigger?.focus();
+        }
+        setOpenRow((current) => (current === id ? null : current));
+        notify(successMessage, "success");
       }
       if (enabledChanged) resetEditor(id);
       else closeEdit(id);
@@ -297,19 +311,6 @@ export function BaseInstructions({
       return false;
     } finally {
       setWrite(null);
-    }
-  };
-  const requestSectionSave = (
-    id: string,
-    choice: SavedChoice | undefined,
-    from?: HTMLElement,
-  ) => {
-    if (busy) return;
-    if (choice && Object.keys(ownerSections(store).choices).length === 0) {
-      setError(undefined);
-      setConfirmation({ id, choice, from });
-    } else {
-      void saveSection(id, choice, from);
     }
   };
   /** The names of the plugins that can replace `section`. */
@@ -365,8 +366,10 @@ export function BaseInstructions({
         ? canReplace(able)
         : `Your choice also applies in chats that ${names.format(able)} ${able.length > 1 ? "manage" : "manages"}.`;
     const pluginNoteId = `${noticeId}-${id}-plugin-note`;
+    const restartNoteId = `${noticeId}-${id}-restart-note`;
+    const restartNote = mayRestart && enabled ? restartNoteId : undefined;
     const actionDescription =
-      [pluginNote && pluginNoteId, changed && notice]
+      [pluginNote && pluginNoteId, changed && notice, restartNote]
         .filter(Boolean)
         .join(" ") || undefined;
     const updateEdit = (next: SectionEdit) => {
@@ -417,6 +420,11 @@ export function BaseInstructions({
             {pluginNote}
           </p>
         )}
+        {restartNote && (
+          <p id={restartNoteId} className="m-0 text-caption text-subtle">
+            {firstChoiceNotice}
+          </p>
+        )}
         <footer className="mt-1 flex flex-wrap items-center gap-2">
           {mode !== "off" && (
             <div
@@ -444,7 +452,7 @@ export function BaseInstructions({
                 render={
                   <Button
                     size="sm"
-                    variant="subtle"
+                    variant="ghost"
                     aria-label={`Options for ${title}`}
                     aria-describedby={actionDescription}
                     data-instruction-actions=""
@@ -458,14 +466,20 @@ export function BaseInstructions({
               <MenuPopup
                 align="end"
                 size="compact"
-                finalFocus={confirmation?.id === id ? false : undefined}
+                finalFocus={() => {
+                  const trigger = savedTrigger.current;
+                  return trigger && openRow === null ? trigger : true;
+                }}
               >
                 <MenuItem
                   onClick={() =>
-                    requestSectionSave(
+                    void saveSection(
                       id,
                       enabled ? { mode: "off", basedOn } : undefined,
                       openSectionActions() ?? undefined,
+                      enabled
+                        ? "Instruction disabled."
+                        : "Instruction enabled.",
                     )
                   }
                 >
@@ -504,6 +518,7 @@ export function BaseInstructions({
             <Button
               size="sm"
               variant="prominent"
+              aria-describedby={restartNote}
               loading={savingText}
               disabled={!dirty || !!problem || (busy && !savingText)}
               focusableWhenDisabled
@@ -512,14 +527,19 @@ export function BaseInstructions({
                 const next: SavedChoice | undefined = usesDefault
                   ? undefined
                   : { mode: "custom", text, basedOn };
-                requestSectionSave(id, next, event.currentTarget);
+                void saveSection(
+                  id,
+                  next,
+                  event.currentTarget,
+                  "Instruction saved.",
+                );
               }}
             >
               Save
             </Button>
           </div>
         </footer>
-        {error?.id === id && confirmation?.id !== id && (
+        {error?.id === id && (
           <p role="alert" className="m-0 text-body-sm text-danger">
             {error.message}
           </p>
@@ -677,53 +697,6 @@ export function BaseInstructions({
           instructions.
         </p>
       </div>
-      {confirmation && (
-        <AlertDialog
-          title="Save instruction change?"
-          description={firstChoiceNotice}
-          pending={saving === confirmation.id}
-          finalFocus={() =>
-            confirmation.from?.isConnected
-              ? confirmation.from
-              : (openSectionActions() ?? false)
-          }
-          onClose={() => {
-            setError(undefined);
-            setConfirmation(undefined);
-          }}
-          actions={
-            <>
-              <Button
-                disabled={!!saving}
-                onClick={() => {
-                  setError(undefined);
-                  setConfirmation(undefined);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="prominent"
-                loading={saving === confirmation.id}
-                onClick={async () => {
-                  const { id, choice, from } = confirmation;
-                  if (!(await saveSection(id, choice))) return;
-                  if (from) pendingFocus.current = { id, from };
-                  setConfirmation(undefined);
-                }}
-              >
-                {confirmation.choice.mode === "off" ? "Disable" : "Save"}
-              </Button>
-            </>
-          }
-        >
-          {error?.id === confirmation.id && (
-            <p role="alert" className="m-0 text-body-sm text-danger">
-              {error.message}
-            </p>
-          )}
-        </AlertDialog>
-      )}
     </section>
   );
 }
